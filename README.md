@@ -12,3 +12,8 @@ Fantasy esports tournament app built with Next.js, Prisma, Neon, Google OAuth, a
 5. Run `npm install`, `npm run db:generate`, and `npm run dev`.
 
 Visit `http://localhost:3000`, sign in with Google, and verify the protected `/account` page opens.
+
+## Database setup
+
+After configuring `.env`, apply the schema with `npm run db:migrate -- --name init`.
+Set `ADMIN_EMAIL` and run `npm run db:seed` to assign the initial administrator role.

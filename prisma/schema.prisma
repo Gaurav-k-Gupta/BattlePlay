@@ -7,18 +7,181 @@ datasource db {
   provider = "postgresql"
 }
 
-// Bootstrap model only. The complete architecture schema is introduced in Phase 1.
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String?
-  googleId     String?  @unique
-  role         Role     @default(USER)
-  createdAt    DateTime @default(now())
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  passwordHash    String?
+  googleId        String?   @unique
+  phone           String?
+  freeFireUID     String?
+  freeFireIGN     String?
+  role            Role      @default(USER)
+  isBanned        Boolean   @default(false)
+  referralCode    String    @unique @default(cuid())
+  referredBy      String?
+  agreedToTerms   Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  transactions       Transaction[]
+  registrations      Registration[]
+  withdrawalRequests WithdrawalRequest[]
+  notifications      Notification[]
+  promoRedemptions   PromoRedemption[]
 }
 
 enum Role {
   USER
   ADMIN
+}
+
+model Transaction {
+  id                  String             @id @default(cuid())
+  user                User               @relation(fields: [userId], references: [id])
+  userId              String
+  type                TxType
+  amount              Decimal            @db.Decimal(10, 2)
+  status              TxStatus           @default(PENDING)
+  relatedMatch        Match?             @relation(fields: [relatedMatchId], references: [id])
+  relatedMatchId      String?
+  relatedWithdrawal   WithdrawalRequest? @relation(fields: [relatedWithdrawalId], references: [id])
+  relatedWithdrawalId String?
+  razorpayOrderId     String?
+  note                String?
+  createdBy           String?
+  createdAt           DateTime           @default(now())
+
+  @@index([userId])
+}
+
+enum TxType {
+  TOPUP
+  MATCH_FEE
+  WINNINGS
+  WITHDRAWAL
+  REFUND
+  PROMO_BONUS
+  REFERRAL_BONUS
+}
+
+enum TxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REJECTED
+}
+
+model Match {
+  id                String      @id @default(cuid())
+  title             String
+  description       String?
+  gameType          GameType
+  entryFee          Decimal     @db.Decimal(10, 2)
+  prizePool         Decimal     @db.Decimal(10, 2)
+  maxSlots          Int
+  matchTime         DateTime
+  status            MatchStatus @default(UPCOMING)
+  roomId            String?
+  roomPassword      String?
+  telegramGroupLink String?
+  resultsSubmitted  Boolean     @default(false)
+  createdBy         String?
+  lastEditedBy      String?
+  createdAt         DateTime    @default(now())
+
+  registrations Registration[]
+  transactions  Transaction[]
+}
+
+enum GameType {
+  SOLO
+  DUO
+  SQUAD
+}
+
+enum MatchStatus {
+  UPCOMING
+  LIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Registration {
+  id               String   @id @default(cuid())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           String
+  match            Match    @relation(fields: [matchId], references: [id])
+  matchId          String
+  freeFireIGNUsed  String
+  verifiedByHost   Boolean  @default(false)
+  placement        Int?
+  winningsCredited Boolean  @default(false)
+  registeredAt     DateTime @default(now())
+
+  @@unique([userId, matchId])
+}
+
+model WithdrawalRequest {
+  id          String           @id @default(cuid())
+  user        User             @relation(fields: [userId], references: [id])
+  userId      String
+  amount      Decimal          @db.Decimal(10, 2)
+  upiId       String
+  status      WithdrawalStatus @default(PENDING)
+  adminNote   String?
+  requestedAt DateTime         @default(now())
+  actionedAt  DateTime?
+  actionedBy  String?
+
+  transactions Transaction[]
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  title     String
+  message   String
+  type      NotifType
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+}
+
+enum NotifType {
+  ROOM_AVAILABLE
+  WINNINGS_CREDITED
+  WITHDRAWAL_UPDATE
+  GENERAL
+}
+
+model PromoCode {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  bonusAmount    Decimal  @db.Decimal(10, 2)
+  maxRedemptions Int?
+  expiresAt      DateTime?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  redemptions PromoRedemption[]
+}
+
+model PromoRedemption {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+  promoCodeId String
+  redeemedAt  DateTime  @default(now())
+
+  @@unique([userId, promoCodeId])
 }

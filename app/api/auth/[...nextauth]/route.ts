@@ -22,12 +22,16 @@ async function limitAuth(request: NextRequest) {
 
 const authHandler = NextAuth(authOptions);
 
-export async function GET(request: NextRequest) {
+type AuthRouteContext = {
+  params: Promise<{ nextauth: string[] }>;
+};
+
+export async function GET(request: NextRequest, context: AuthRouteContext) {
   const response = await limitAuth(request);
-  return response ?? authHandler(request, {});
+  return response ?? authHandler(request, context);
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, context: AuthRouteContext) {
   const response = await limitAuth(request);
-  return response ?? authHandler(request, {});
+  return response ?? authHandler(request, context);
 }
