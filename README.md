@@ -1,6 +1,6 @@
 # BattlePlay
 
-Fantasy esports tournament app built with Next.js, Prisma, Neon, Google OAuth, and Razorpay.
+Fantasy esports tournament app built with Next.js, Prisma, Neon, Google OAuth, and TranzUPI.
 
 ## Phase 0 setup
 
@@ -17,3 +17,13 @@ Visit `http://localhost:3000`, sign in with Google, and verify the protected `/a
 
 After configuring `.env`, apply the schema with `npm run db:migrate -- --name init`.
 Set `ADMIN_EMAIL` and run `npm run db:seed` to assign the initial administrator role.
+
+## TranzUPI setup
+
+Add `TRANZUPI_USER_TOKEN` to `.env`, then configure this callback URL in the TranzUPI dashboard:
+
+```text
+https://YOUR_DOMAIN/api/wallet/topup/webhook
+```
+
+Visit `/wallet` while signed in and with a valid 10-digit Indian mobile number on your profile. BattlePlay creates a hosted TranzUPI payment link and redirects the user there. A successful payment is credited only after BattlePlay independently calls TranzUPI's order-status API and confirms that the reported amount matches the pending transaction. The webhook also triggers this verification, so a payment is still credited if the user closes the browser before returning to BattlePlay.

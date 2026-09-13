@@ -1,6 +1,6 @@
 # Fantasy Esports Tournament App — Technical Architecture (v3, Final)
 
-**Scope:** token purchase via Razorpay, match registration, manual admin-credited winnings, manual admin-approved withdrawals (paid outside the system to a UPI ID), manual Free Fire ID verification by room host, PWA for web+app — plus profile, history, notifications, leaderboard, promo codes, referrals, and basic security hardening.
+**Scope:** token purchase via TranzUPI, match registration, manual admin-credited winnings, manual admin-approved withdrawals (paid outside the system to a UPI ID), manual Free Fire ID verification by room host, PWA for web+app — plus profile, history, notifications, leaderboard, promo codes, referrals, and basic security hardening.
 
 **Stack:** Next.js (App Router, frontend + API routes) on Vercel · PostgreSQL on Neon (pooled connection) · Prisma ORM.
 
@@ -14,7 +14,7 @@
 | Database | **PostgreSQL** (hosted on **Neon**) | Relational data fits SQL; foreign keys + constraints enforce integrity at the DB level |
 | ORM | **Prisma** | Type-safe queries, schema-driven migrations |
 | Auth | NextAuth.js (Google OAuth) + role field for admin | OAuth flow, sessions/JWT out of the box |
-| Payments (in only) | Razorpay Orders API | UPI/card token purchase |
+| Payments (in only) | TranzUPI hosted-payment API | UPI token purchase |
 | Validation | **Zod** | Schema validation on every API route input |
 | Rate limiting | **@upstash/ratelimit** + Upstash Redis (free tier) | Protects login/registration routes from spam/abuse |
 | Hosting | **Vercel** | No cold-start "sleep" problem; scales automatically under burst load |
@@ -33,7 +33,7 @@
                                                          |
                                         Postgres on Neon (pooled connection string)
                                                          |
-                                        Razorpay (token purchase) / Telegram Bot API (optional)
+                                        TranzUPI (token purchase) / Telegram Bot API (optional)
 ```
 
 **Reminder:** always use Neon's **pooled** connection string in `DATABASE_URL` — under bursty serverless traffic, multiple parallel function instances each opening a direct connection will exhaust Postgres's connection limit otherwise.
@@ -84,7 +84,7 @@ model Transaction {
   relatedMatchId      String?
   relatedWithdrawal   WithdrawalRequest? @relation(fields: [relatedWithdrawalId], references: [id])
   relatedWithdrawalId String?
-  razorpayOrderId     String?
+  razorpayOrderId     String?              // legacy field from the initial provider; unused by TranzUPI
   note                String?
   createdBy           String?              // admin userId, for manual actions — audit trail
   createdAt           DateTime  @default(now())
@@ -250,6 +250,7 @@ Auth
 Wallet
   POST /api/wallet/topup/create-order
   POST /api/wallet/topup/verify
+  POST /api/wallet/topup/webhook              // TranzUPI callback; server rechecks order status
   GET  /api/wallet/balance
   GET  /api/wallet/transactions
 
@@ -301,7 +302,7 @@ Admin  (all gated by role === ADMIN, all Zod-validated)
 
 ## 6. Key Flow Walkthroughs
 
-**Token purchase** — unchanged from v2: create order → Razorpay checkout → **server re-verifies signature** → `Transaction(TOPUP, SUCCESS)`.
+**Token purchase** — create a TranzUPI hosted-payment order → redirect to its payment page → callback/return triggers BattlePlay → **server calls TranzUPI order status and verifies the amount** → `Transaction(TOPUP, SUCCESS)`. The webhook is idempotent and is only a trigger for this independent server-side check.
 
 **Match registration** (inside `prisma.$transaction`, Zod-validated input, rate-limited):
 1. Confirm `agreedToTerms === true`.
@@ -373,10 +374,10 @@ Unchanged from v2 — `next-pwa` + a `manifest.json` in `/public` for installabl
 
 - **Zod validation** on every API route's input — reject malformed/missing fields before they reach Prisma.
 - **Rate limiting** (`@upstash/ratelimit`, Upstash Redis free tier) on `/api/auth/*` and `/api/matches/[id]/register` — prevents spam signups and registration abuse.
-- **Server-side re-verification** of Razorpay signatures — never trust client-reported payment success.
+- **Server-side re-verification** through TranzUPI's order-status API — never trust a redirect or webhook payload alone.
 - **DB-level constraints** (`@@unique` on Registration and PromoRedemption) as a backstop against race conditions, not just app-level checks.
 - **Audit trail by construction** — `createdBy`/`actionedBy` on every manual admin action, surfaced via the Audit Log page.
-- **Server-only env vars** by default in Next.js; only `NEXT_PUBLIC_`-prefixed vars reach the browser — DB URL, Razorpay secret, NextAuth secret never leak client-side.
+- **Server-only env vars** by default in Next.js; only `NEXT_PUBLIC_`-prefixed vars reach the browser — DB URL, TranzUPI token, NextAuth secret never leak client-side.
 - **Basic loading/error states** on every data-fetching page in the frontend — avoids blank screens on failed requests.
 - **Terms acceptance enforced server-side**, not just a frontend checkbox that can be bypassed by calling the API directly.
 
@@ -428,7 +429,7 @@ Unchanged from v2 — `next-pwa` + a `manifest.json` in `/public` for installabl
     ...
 /lib
   prisma.js          (singleton Prisma client)
-  razorpay.js
+  tranzupi.js
   ratelimit.js        (Upstash config)
   validation/          (Zod schemas per route)
 /prisma
