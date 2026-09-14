@@ -3,21 +3,22 @@ import "dotenv/config";
 import { prisma } from "../lib/prisma";
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const emails = process.env.ADMIN_EMAIL?.split(",").map(e => e.trim().toLowerCase()).filter(Boolean) || [];
 
-  if (!email) {
+  if (emails.length === 0) {
     throw new Error("ADMIN_EMAIL must be set before seeding an admin user.");
   }
 
   const name = process.env.ADMIN_NAME?.trim() || "BattlePlay Admin";
 
-  const admin = await prisma.user.upsert({
-    where: { email },
-    update: { name, role: "ADMIN" },
-    create: { name, email, role: "ADMIN" },
-  });
-
-  console.log(`Seeded admin user: ${admin.email}`);
+  for (const email of emails) {
+    const admin = await prisma.user.upsert({
+      where: { email },
+      update: { name, role: "ADMIN" },
+      create: { name, email, role: "ADMIN" },
+    });
+    console.log(`Seeded admin user: ${admin.email}`);
+  }
 
   const templates = [
     ["Full Map Solo", "FULL_MAP", "SOLO", 8, 48, 7, 25, 7], ["Full Map Duo", "FULL_MAP", "DUO", 8, 48, 7, 25, 7],
