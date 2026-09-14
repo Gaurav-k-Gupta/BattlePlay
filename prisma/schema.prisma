@@ -76,10 +76,17 @@ model Match {
   title             String
   description       String?
   gameType          GameType
+  category          MatchCategory
+  paymentType       MatchPaymentType
+  map               String
   entryFee          Decimal     @db.Decimal(10, 2)
   prizePool         Decimal     @db.Decimal(10, 2)
-  maxSlots          Int
+  prizePerFinish    Decimal     @db.Decimal(10, 2)
+  winnerPrize       Decimal     @db.Decimal(10, 2)
+  runnerUpPrize     Decimal     @db.Decimal(10, 2)
+  lobbySize         Int
   matchTime         DateTime
+  rules             String
   status            MatchStatus @default(UPCOMING)
   roomId            String?
   roomPassword      String?
@@ -99,6 +106,20 @@ enum GameType {
   SQUAD
 }
 
+enum MatchCategory {
+  FULL_MAP
+  CS
+  LW
+  HEAD
+  LW_HEAD
+  FREE
+}
+
+enum MatchPaymentType {
+  PAID
+  FREE
+}
+
 enum MatchStatus {
   UPCOMING
   LIVE
@@ -113,12 +134,17 @@ model Registration {
   match            Match    @relation(fields: [matchId], references: [id])
   matchId          String
   freeFireIGNUsed  String
+  slotNumber       Int
+  slotCount        Int
   verifiedByHost   Boolean  @default(false)
   placement        Int?
+  finishes         Int      @default(0)
   winningsCredited Boolean  @default(false)
   registeredAt     DateTime @default(now())
 
   @@unique([userId, matchId])
+  @@unique([matchId, slotNumber])
+  @@index([matchId])
 }
 
 model WithdrawalRequest {

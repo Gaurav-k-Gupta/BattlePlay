@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getWalletBalance } from "@/lib/wallet-balance";
 import { reconcileTranzupiTopUp, type TopUpReconciliation } from "@/lib/wallet-topups";
 import { WalletTopUp } from "@/components/wallet-top-up";
+import { PromoRedemption } from "@/components/promo-redemption";
 import { Card } from "@/components/ui/card";
+import Link from "next/link";
 
 const transactionStyle = {
   SUCCESS: "border-violet-500/40 bg-violet-700/20 text-violet-400",
@@ -70,9 +72,13 @@ export default async function WalletPage({ searchParams }: { searchParams: Promi
           <Card className="overflow-hidden p-6" tone="elevated">
             <p className="text-xs font-bold tracking-[0.18em] text-muted">AVAILABLE BALANCE</p>
             <p className="mt-3 font-display text-5xl font-black tracking-tight text-white">₹{balance.toFixed(2)}</p>
-            <p className="mt-3 text-sm leading-6 text-muted">Only successful credits and debits count toward this amount.</p>
+            <p className="mt-3 text-sm leading-6 text-muted mb-6">Only successful credits and debits count toward this amount.</p>
+            <Link href="/wallet/withdraw" className="w-full inline-flex justify-center items-center rounded-xl bg-canvas border border-line px-4 py-3 text-sm font-bold text-white transition hover:border-violet-500 hover:bg-violet-700/15">
+              Withdraw Funds
+            </Link>
           </Card>
           <WalletTopUp />
+          <PromoRedemption />
         </div>
 
         <Card className="p-5 sm:p-6">

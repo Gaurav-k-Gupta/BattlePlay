@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { cookies } from "next/headers";
 
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +21,18 @@ export const authOptions: NextAuthOptions = {
 
       const fallbackName = user.name?.trim() || user.email.split("@")[0];
 
+      const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
+      
+      let referredBy = undefined;
+      if (!existingUser) {
+        const cookieStore = await cookies();
+        const refCode = cookieStore.get("battleplay_ref")?.value;
+        if (refCode) {
+          const referrer = await prisma.user.findUnique({ where: { referralCode: refCode } });
+          if (referrer) referredBy = referrer.id;
+        }
+      }
+
       await prisma.user.upsert({
         where: { email: user.email },
         update: {
@@ -30,6 +43,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           googleId: account.providerAccountId,
           name: fallbackName,
+          referredBy: referredBy,
         },
       });
 

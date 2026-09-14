@@ -19,3 +19,7 @@ export const authRateLimit = redis
       prefix: "battleplay:auth",
     })
   : null;
+
+export const registrationRateLimit = redis
+  ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, "1 m"), prefix: "battleplay:registration" })
+  : null;

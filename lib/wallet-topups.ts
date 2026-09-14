@@ -42,7 +42,43 @@ export async function reconcileTranzupiTopUp(orderId: string, userId?: string): 
     data: { status: "SUCCESS", note: `TranzUPI payment${providerOrder.utr ? ` UTR ${providerOrder.utr}` : ""} verified server-side.` },
   });
 
-  if (completed.count === 1) return "SUCCESS";
+  if (completed.count === 1) {
+    // Check if this was their first top-up to grant referral bonuses
+    const user = await prisma.user.findUnique({
+      where: { id: transaction.userId },
+      select: { referredBy: true }
+    });
+    
+    if (user?.referredBy) {
+      const topUpCount = await prisma.transaction.count({
+        where: { userId: transaction.userId, type: "TOPUP", status: "SUCCESS" }
+      });
+      
+      if (topUpCount === 1) { // This is their first top-up!
+        await prisma.transaction.createMany({
+          data: [
+            {
+              userId: user.referredBy,
+              type: "REFERRAL_BONUS",
+              amount: 10,
+              status: "SUCCESS",
+              note: "Referral bonus: a user you referred completed their first top-up"
+            },
+            {
+              userId: transaction.userId,
+              type: "REFERRAL_BONUS",
+              amount: 10,
+              status: "SUCCESS",
+              note: "First top-up bonus!"
+            }
+          ]
+        });
+      }
+    }
+    
+    return "SUCCESS";
+  }
+  
   const latest = await prisma.transaction.findUnique({ where: { id: transaction.id }, select: { status: true } });
   return latest?.status === "SUCCESS" ? "SUCCESS" : "FAILED";
 }
