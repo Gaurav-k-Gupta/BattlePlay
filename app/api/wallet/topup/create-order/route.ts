@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       },
       select: { id: true },
     });
-    const origin = process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
+    const origin = process.env.NEXTAUTH_URL || (request.headers.get("origin") ?? `https://${request.headers.get("host")}`);
     const redirectUrl = new URL("/wallet", origin);
     redirectUrl.searchParams.set("topup", transaction.id);
     const order = await createTranzupiOrder({
